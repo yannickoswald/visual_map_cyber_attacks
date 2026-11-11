@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Supermarket Fridge Attacks 2026: Two Waves</title>
+<meta name="description" content="Simple map of the two waves of cyberattacks on supermarket refrigeration systems in Europe, October and November 2026. Each dot links to the report that names the town.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Simple version of supermarket_fridge_attacks_map.html: countries by wave, one count per
+   country, and dots for towns named in verified reports. No store names, chains or costs.
+   Iteration 3: same map as iteration 2; each dot links to the report that names its town,
+   and the sources under the map are links. Full list: sheet "Map locations" in
+   supermarket_fridge_attacks_database.xlsx. */
+:root{
+  --bg:#eef2f5; --sea:#e2e9ee; --land:#fbfcfd; --coast:#b3c1ca; --border:#d0d9df; --grat:#d7e0e6;
+  --panel:#ffffff; --edge:rgba(14,34,46,.11); --ink:#0e1b23; --ink-2:#43535d; --muted:#71818b;
+  --rule:#d9e1e6; --chip:#eef2f5; --halo:#fbfcfd;
+  --w1:#c2187a;          /* wave 1, October */
+  --w2:#ee7313;          /* wave 2, November */
+  --tint-w1:color-mix(in srgb, var(--w1) 15%, var(--land));
+  --tint-w2:color-mix(in srgb, var(--w2) 19%, var(--land));
+  --glow:0px; --shadow:0 10px 30px rgba(14,34,46,.14);
+  --f-sans:"Archivo","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a1014; --sea:#0e171c; --land:#18232a; --coast:#33454f; --border:#283740; --grat:#132026;
+    --panel:#121c22; --edge:rgba(255,255,255,.09); --ink:#e8eff2; --ink-2:#a8b7bf; --muted:#74868f;
+    --rule:#22313a; --chip:#1b282f; --halo:#18232a; --w1:#d8418f; --w2:#e66d14;
+    --tint-w1:color-mix(in srgb, var(--w1) 30%, var(--land));
+    --tint-w2:color-mix(in srgb, var(--w2) 30%, var(--land));
+    --glow:6px; --shadow:0 10px 30px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.45 var(--f-sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--w2);outline-offset:2px}
+.sr-only{position:absolute;top:0;left:0;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+.app{height:100%;max-width:1600px;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:12px;
+  padding-block:16px 10px;padding-left:max(20px, env(safe-area-inset-left, 0px));padding-right:max(20px, env(safe-area-inset-right, 0px))}
+
+/* masthead */
+.mast{display:flex;align-items:flex-end;justify-content:space-between;gap:14px 40px;flex-wrap:wrap}
+.mast-text{min-width:0;flex:1 1 520px}
+.eyebrow{margin:0 0 6px;font:500 11.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{margin:0;font-weight:760;font-stretch:76%;font-size:clamp(27px,2.6vw,40px);line-height:1.02;letter-spacing:-.005em;text-wrap:balance}
+.dek{margin:8px 0 0;max-width:76ch;color:var(--ink-2);font-size:14.5px;line-height:1.45;text-wrap:pretty}
+.figs{display:flex;gap:30px;flex:0 1 auto;min-width:0}
+.fig{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fig-v{font-weight:720;font-stretch:80%;font-size:42px;line-height:.95;letter-spacing:-.01em}
+.fig-l{font:500 11px/1.3 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+/* map */
+.mapcol{position:relative;min-height:0;min-width:0}
+.mapwrap{position:absolute;inset:0;background:var(--sea);border-radius:14px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--edge)}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block}
+.loading{position:absolute;inset:0;display:grid;place-items:center;font:500 12px var(--f-mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.loading.err{text-transform:none;letter-spacing:0;font:400 14px var(--f-sans);color:var(--ink-2);padding:24px;text-align:center}
+.grat{fill:none;stroke:var(--grat);stroke-width:.6px}
+.land{fill:var(--land)}
+.coast{fill:none;stroke:var(--coast);stroke-width:.75px}
+.borders{fill:none;stroke:var(--border);stroke-width:.7px;stroke-linejoin:round}
+.tint{opacity:0;transition:opacity .9s ease}
+.tint.w1{fill:var(--tint-w1)} .tint.w2{fill:var(--tint-w2)}
+.tint.on{opacity:1}
+
+/* dots: towns named in reports */
+.site.w1{--wc:var(--w1)} .site.w2{--wc:var(--w2)}
+.site .dot{fill:var(--wc);stroke:var(--land);stroke-width:1.5px;transform:scale(0);transform-box:fill-box;transform-origin:center;
+  transition:transform .45s cubic-bezier(.3,1.5,.5,1) var(--d,0ms);filter:drop-shadow(0 0 var(--glow) var(--wc))}
+.site.on .dot{transform:scale(1)}
+.rip{fill:none;stroke:var(--wc);stroke-width:1.4px;opacity:0;transform-box:fill-box;transform-origin:center;pointer-events:none}
+.rip.go{animation:rip 1.6s cubic-bezier(.15,.6,.3,1) var(--d,0ms) forwards}
+@keyframes rip{0%{opacity:.75;transform:scale(1)}100%{opacity:0;transform:scale(3.4)}}
+
+/* dot links: a larger hit area sits in its own layer under all dots, so close dots stay easy to pick */
+.site a{cursor:pointer;outline:none}
+.site:not(.on) a{pointer-events:none}
+.hit{fill:transparent}
+.ring{fill:none;stroke:var(--wc);stroke-width:1.6px;opacity:0;transition:opacity .15s;pointer-events:none}
+.site.hov .ring{opacity:1}
+.site a:focus-visible .ring{opacity:1;stroke:var(--ink);stroke-width:2px}
+
+/* tooltip on hover or keyboard focus */
+.tip{position:absolute;left:0;top:0;z-index:3;pointer-events:none;opacity:0;transform:translate(-50%,calc(-100% - 14px));
+  padding:7px 11px 8px;border-radius:9px;background:var(--panel);box-shadow:var(--shadow),0 0 0 1px var(--edge);
+  font-size:12.5px;line-height:1.35;color:var(--ink-2);white-space:nowrap;transition:opacity .12s}
+.tip.on{opacity:1}
+.tip.below{transform:translate(-50%,14px)}
+.tip b{color:var(--ink);font-weight:650;font-size:13px}
+.tip .go{display:block;color:var(--ink)}
+
+/* country labels */
+.lbl{opacity:0;transition:opacity .4s ease;pointer-events:none}
+.lbl.on{opacity:1;transition:opacity .6s ease .5s}
+.lbl text{paint-order:stroke;stroke:var(--halo);stroke-width:3.4px;stroke-linejoin:round}
+.lbl .l1{font:600 13px var(--f-sans);fill:var(--ink)}
+.lbl .l2{font:400 12px var(--f-sans);fill:var(--ink-2)}
+.lbl .n{font-weight:720;fill:var(--ink)}
+
+/* key */
+.key{position:absolute;left:14px;bottom:14px;display:grid;gap:8px;max-width:310px;padding:12px 14px 12px 12px;border-radius:12px;
+  background:color-mix(in srgb, var(--panel) 94%, transparent);box-shadow:0 0 0 1px var(--edge);font-size:12.5px;line-height:1.3;color:var(--ink-2)}
+.k-row{display:flex;align-items:center;gap:9px}
+.k-row b{color:var(--ink);font-weight:650}
+.sw{flex:none;position:relative;width:22px;height:15px;border-radius:3px;box-shadow:inset 0 0 0 1px var(--border)}
+.sw.w1{background:var(--tint-w1)} .sw.w2{background:var(--tint-w2)}
+.sw::after{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;box-shadow:0 0 0 1.5px var(--land)}
+.sw.w1::after{background:var(--w1)} .sw.w2::after{background:var(--w2)}
+.kd{flex:none;width:22px;display:grid;place-items:center}
+.kd::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ink-2);box-shadow:0 0 0 1.5px var(--land)}
+.k-note{margin:2px 0 0;font-size:12px;color:var(--muted)}
+
+/* controls */
+.deck{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;min-width:0}
+.play{flex:none;width:42px;height:42px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;cursor:pointer;transition:transform .15s}
+.play:hover{transform:scale(1.05)}
+.play svg{width:16px;height:16px}
+.steps{display:flex;gap:6px;flex:none}
+.pill{display:flex;align-items:center;gap:8px;height:36px;padding:0 13px 0 11px;border-radius:18px;border:1px solid var(--rule);background:transparent;cursor:pointer;
+  font-size:13px;color:var(--ink-2);transition:background .15s,border-color .15s}
+.pill:hover{background:var(--chip)}
+.pill b{color:var(--ink);font-weight:650}
+.pill[aria-pressed="true"]{background:var(--panel);border-color:var(--ink-2)}
+.pd{width:9px;height:9px;border-radius:50%}
+.pd.w1{background:var(--w1)} .pd.w2{background:var(--w2)}
+.cap{flex:1 1 360px;min-width:0;margin:0;font-size:14px;line-height:1.45;color:var(--ink-2);text-wrap:pretty}
+.swapin{animation:capIn .45s cubic-bezier(.2,.75,.25,1) both}
+@keyframes capIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* sources */
+.source{margin:0;font-size:11.5px;line-height:1.45;color:var(--muted)}
+.source span{display:block}
+.source span + span{margin-top:2px}
+.source b{font-weight:600;color:var(--ink-2)}
+.source a{color:var(--ink-2);text-decoration:underline;text-decoration-color:color-mix(in srgb, var(--ink-2) 35%, transparent);text-underline-offset:2px}
+.source a:hover{color:var(--ink);text-decoration-color:currentColor}
+
+.no-anim *,.no-anim *::before,.no-anim *::after{transition:none!important;animation:none!important}
+
+@media screen and (max-width: 760px){
+  .app{height:auto;min-height:100%;grid-template-rows:auto;align-content:start}
+  .mapcol{display:flex;flex-direction:column;gap:10px}
+  .mapwrap{position:relative;inset:auto;height:clamp(340px,92vw,600px)}
+  .key{position:static;max-width:none}
+  .fig-v{font-size:34px}
+}
+@media (prefers-reduced-motion: reduce){
+  .rip.go,.swapin{animation:none}
+}
+
+/* fixed-size export frame: open the page with #static */
+html.static,html.static body{width:1600px;height:1000px;overflow:hidden}
+html.static .app{max-width:none;width:1600px;height:1000px;grid-template-rows:auto minmax(0,1fr) auto}
+html.static .deck,html.static .tip{display:none}
+@page{size:1600px 1000px;margin:0}
+@media print{html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="mast">
+    <div class="mast-text">
+      <p class="eyebrow">Cyberattacks on food retail &middot; Europe, 2026</p>
+      <h1>Hacked supermarket fridges: two waves across Europe</h1>
+      <p class="dek">Overnight, attackers took remote control of supermarket refrigeration systems and switched freezers and chilled cases into defrost or heating mode. The first wave hit France in October 2026. Three weeks later, a second wave reached six more countries.</p>
+    </div>
+    <div class="figs">
+      <div class="fig"><span class="fig-v" id="figStores">0</span><span class="fig-l">stores hit</span></div>
+      <div class="fig"><span class="fig-v" id="figCountries">0</span><span class="fig-l">countries</span></div>
+    </div>
+  </header>
+
+  <main class="mapcol">
+    <div class="mapwrap" id="mapWrap">
+      <svg id="map" role="group" aria-label="Map of Europe showing the two waves of attacks" aria-describedby="mapDesc">
+        <desc id="mapDesc">Wave 1, 11 to 13 October 2026: about 700 supermarkets in France. Wave 2, 1 to 2 November 2026: Belgium and Luxembourg at least 55 stores, Italy about 20, Ireland at least 13, Sweden at least 9, Germany at least 5. Dots mark towns named in verified reports; they are examples, not every site, and each one links to the report that names the town. The dots near Nantes and outside Dijon are approximate.</desc>
+        <g id="world"></g>
+        <g id="sym"></g>
+      </svg>
+      <div class="tip" id="tip" aria-hidden="true"></div>
+      <div class="loading" id="loading">Loading map&hellip;</div>
+    </div>
+    <div class="key" aria-hidden="true">
+      <div class="k-row"><span class="sw w1"></span><span><b>Wave 1</b> &middot; 11&ndash;13 Oct 2026</span></div>
+      <div class="k-row"><span class="sw w2"></span><span><b>Wave 2</b> &middot; 1&ndash;2 Nov 2026</span></div>
+      <div class="k-row"><span class="kd"></span><span>Town named in reports (examples, not every site). Click a dot for its source.</span></div>
+      <p class="k-note">Numbers: stores hit per country, confirmed count. &ge;&nbsp;means at&nbsp;least.</p>
+    </div>
+  </main>
+
+  <footer class="deck">
+    <button class="play" id="play" type="button" aria-label="Play"><svg viewBox="0 0 16 16" aria-hidden="true" id="playIcon"></svg></button>
+    <div class="steps" role="group" aria-label="Show a wave">
+      <button class="pill" type="button" data-s="1" aria-pressed="false"><span class="pd w1"></span><span><b>Wave 1</b> &middot; 11&ndash;13 Oct</span></button>
+      <button class="pill" type="button" data-s="2" aria-pressed="false"><span class="pd w2"></span><span><b>Wave 2</b> &middot; 1&ndash;2 Nov</span></button>
+    </div>
+    <p class="cap" id="cap" aria-live="polite"></p>
+  </footer>
+
+  <p class="source">
+    <span>Data: supermarket refrigeration cyberattacks incident database, v2 (status 4 November 2026), compiled from news reports and official statements. Every count and dot was checked against the linked source on 10 November 2026; the full list with quotes is in the database sheet &ldquo;Map locations&rdquo;. Unverified reports, unconfirmed countries and the suspected US cases are left out. All figures are provisional. Map: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer">Natural Earth</a>.</span>
+    <span><b>Store counts</b>, confirmed by companies or authorities: France &asymp;700, the Finance Minister&rsquo;s figure (<a href="https://www.pbs.org/newshour/world/cyberattacks-disrupt-refrigeration-systems-at-european-supermarkets" target="_blank" rel="noopener noreferrer">AP</a>) &middot; Belgium, only stores confirmed by Delhaize and Carrefour (<a href="https://www.retaildetail.eu/news/food/refrigerated-display-cases-at-delhaize-supermarkets-hacked/" target="_blank" rel="noopener noreferrer">RetailDetail</a>), some of them in Luxembourg (<a href="https://shattered.io/europe-supermarket-fridge-cyberattack-delhaize-40-stores-sabcobel-2026/" target="_blank" rel="noopener noreferrer">Shattered.io</a>) &middot; Italy (<a href="https://www.ilpost.it/2026/11/03/attacchi-informatici-hacker-supermercati/" target="_blank" rel="noopener noreferrer">Il Post</a>) &middot; Ireland (<a href="https://www.theregister.com/cyber-crime/2026/11/02/frozen-part-ii-hackers-remotely-defrost-produce-in-euro-supermarkets-again/5306924" target="_blank" rel="noopener noreferrer">The Register</a>) &middot; Sweden, Coop&rsquo;s 6 (<a href="https://www.theregister.com/cyber-crime/2026/11/02/frozen-part-ii-hackers-remotely-defrost-produce-in-euro-supermarkets-again/5306924" target="_blank" rel="noopener noreferrer">The Register</a>) plus the 3 ICA stores shown as dots &middot; Germany (<a href="https://www.tagesspiegel.de/wirtschaft/dpa-hacker-attacke-cyberangriffe-auch-auf-kuhlanlagen-deutscher-supermarkte-16237345.html" target="_blank" rel="noopener noreferrer">dpa</a>).</span>
+    <span><b>Towns</b>, named by companies, authorities or major media: Haguenau (<a href="https://www.economiematin.fr/?p=233732" target="_blank" rel="noopener noreferrer">Economie Matin</a>) &middot; outside Dijon (<a href="https://www.npr.org/2026/10/15/nx-s1-6001732/france-investigates-cyberattack-that-hacked-retailers-refrigeration-systems" target="_blank" rel="noopener noreferrer">NPR</a>) &middot; Paris and near Nantes (<a href="https://www.tovima.com/world/france-supermarket-cyberattack-raises-food-security-concerns/" target="_blank" rel="noopener noreferrer">Reuters photos</a>) &middot; Overijse and B&ouml;da (<a href="https://www.theregister.com/cyber-crime/2026/11/02/frozen-part-ii-hackers-remotely-defrost-produce-in-euro-supermarkets-again/5306924" target="_blank" rel="noopener noreferrer">The Register</a>) &middot; Mons (<a href="https://www.retaildetail.eu/news/food/cyberattack-supermarket-refrigeration-systems-in-7-european-countries-affected/" target="_blank" rel="noopener noreferrer">RetailDetail</a>) &middot; Tomelilla and Sj&ouml;bo (<a href="https://www.yahoo.com/news/world/articles/european-supermarkets-rush-patch-vulnerabilities-155654689.html" target="_blank" rel="noopener noreferrer">Reuters</a>) &middot; Catania and Palermo (<a href="https://www.ilpost.it/2026/11/03/attacchi-informatici-hacker-supermercati/" target="_blank" rel="noopener noreferrer">Il Post</a>) &middot; Sassari (<a href="https://tg24.sky.it/cronaca/2026/11/03/attacchi-hacker-supermercati-europa-italia-cosa-sappiamo" target="_blank" rel="noopener noreferrer">Sky TG24</a>) &middot; Reisbach and Wuppertal (<a href="https://www.t-online.de/nachrichten/panorama/kriminalitaet/id_101509426/hackerangriff-auf-kuehltruhen-deutsche-supermaerkte-melden-erste-attacken.html" target="_blank" rel="noopener noreferrer">t-online</a>) &middot; Lilienthal and Wetter-Volmarstein (<a href="https://www.tagesspiegel.de/wirtschaft/dpa-hacker-attacke-cyberangriffe-auch-auf-kuhlanlagen-deutscher-supermarkte-16237345.html" target="_blank" rel="noopener noreferrer">dpa</a>) &middot; Raesfeld (<a href="https://www.newsworm.de/news/germany-also-hit-by-supermarket-refrigeration-cyberattacks" target="_blank" rel="noopener noreferrer">AFP</a>). The dots near Nantes and outside Dijon are approximate.</span>
+  </p>
+</div>
+
+<table class="sr-only">
+  <caption>Stores hit per country, confirmed count</caption>
+  <thead><tr><th scope="col">Country</th><th scope="col">Wave</th><th scope="col">Stores hit</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">France</th><td>Wave 1, 11&ndash;13 Oct 2026</td><td>about 700</td></tr>
+    <tr><th scope="row">Belgium and Luxembourg</th><td>Wave 2, 1&ndash;2 Nov 2026</td><td>at least 55</td></tr>
+    <tr><th scope="row">Italy</th><td>Wave 2, 1&ndash;2 Nov 2026</td><td>about 20</td></tr>
+    <tr><th scope="row">Ireland</th><td>Wave 2, 1&ndash;2 Nov 2026</td><td>at least 13</td></tr>
+    <tr><th scope="row">Sweden</th><td>Wave 2, 1&ndash;2 Nov 2026</td><td>at least 9</td></tr>
+    <tr><th scope="row">Germany</th><td>Wave 2, 1&ndash;2 Nov 2026</td><td>at least 5</td></tr>
+  </tbody>
+</table>
+
+<noscript><p style="padding:16px">This map needs JavaScript to run.</p></noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ */
+  /* Data, from the Incidents sheet of                                    */
+  /* supermarket_fridge_attacks_database.xlsx (v2, 4 Nov 2026)            */
+  /* ------------------------------------------------------------------ */
+
+  // Iteration 2 (9 Nov 2026), after re-checking the dots against news reports:
+  // - removed dots that could not be verified or were only named as a province:
+  //   Issy-les-Moulineaux (FR-L5), Névez (FR-L7), Montreuil (FR-L10), Trapani (IT-02), Ragusa (IT-00)
+  // - safer counts: Belgium ≥55 (only stores confirmed by Delhaize and Carrefour), Italy ≈20,
+  //   Sweden ≥9 (Coop's 6 plus the 3 ICA stores shown as dots), Germany ≥5
+  // Iteration 3 (10 Nov 2026): no change to the data. Each dot now links to the source that
+  // names its town (checked 10 Nov 2026; see sheet "Map locations" in the database).
+
+  // Steps of the animation. State 0 is the empty map; each wave adds to the one before.
+  const STEPS = [
+    { cap: 'Two nights of attacks, three weeks apart. Press play, or pick a wave.' },
+    { cap: 'Night of 11–12 October: about 700 of France’s roughly 10,000 supermarkets are hit, according to the government. Attacks on a second type of refrigeration controller follow the next night.' },
+    { cap: 'Night of 1–2 November: a second wave hits more than 100 stores in six more countries, mostly small convenience formats. Belgium is hit hardest.' }
+  ];
+  const WAVE_STEP = { w1: 1, w2: 2 };
+
+  // One row per country, from rows marked "Confirmed by company/authority":
+  // FR-00, BE-01 + BE-02, IT-00, IE-01, SE-01 + the three ICA stores named in SE-02, DE-00.
+  // Belgium's count includes some Delhaize stores in Luxembourg (BE-01), so the two share a label.
+  // ll = label anchor, a = text anchor.
+  const COUNTRIES = [
+    { geo: ['France'], wave: 'w1', n: 700, name: 'France', num: '≈700', ll: [2.4, 46.55], a: 'middle' },
+    { geo: ['Belgium', 'Luxembourg'], wave: 'w2', n: 55, name: 'Belgium & Luxembourg', num: '≥55', ll: [3.15, 51.62], a: 'end' },
+    { geo: ['Italy'], wave: 'w2', n: 20, name: 'Italy', num: '≈20', ll: [13.0, 42.75], a: 'middle' },
+    { geo: ['Ireland'], wave: 'w2', n: 13, name: 'Ireland', num: '≥13', ll: [-8.0, 53.25], a: 'middle' },
+    { geo: ['Sweden'], wave: 'w2', n: 9, name: 'Sweden', num: '≥9', ll: [15.0, 61.2], a: 'middle' },
+    { geo: ['Germany'], wave: 'w2', n: 5, name: 'Germany', num: '≥5', ll: [10.4, 50.85], a: 'middle' }
+  ];
+
+  // Sources that name the towns, keyed as in the database's Sources sheet.
+  const SRC = {
+    S07: { out: 'Economie Matin', url: 'https://www.economiematin.fr/?p=233732' },
+    S15: { out: 'NPR', url: 'https://www.npr.org/2026/10/15/nx-s1-6001732/france-investigates-cyberattack-that-hacked-retailers-refrigeration-systems' },
+    S50: { out: 'Reuters photos (To Vima)', url: 'https://www.tovima.com/world/france-supermarket-cyberattack-raises-food-security-concerns/' },
+    S32: { out: 'The Register', url: 'https://www.theregister.com/cyber-crime/2026/11/02/frozen-part-ii-hackers-remotely-defrost-produce-in-euro-supermarkets-again/5306924' },
+    S29: { out: 'RetailDetail', url: 'https://www.retaildetail.eu/news/food/cyberattack-supermarket-refrigeration-systems-in-7-european-countries-affected/' },
+    S63: { out: 'Reuters', url: 'https://www.yahoo.com/news/world/articles/european-supermarkets-rush-patch-vulnerabilities-155654689.html' },
+    S34: { out: 'Il Post', url: 'https://www.ilpost.it/2026/11/03/attacchi-informatici-hacker-supermercati/' },
+    S36: { out: 'Sky TG24', url: 'https://tg24.sky.it/cronaca/2026/11/03/attacchi-hacker-supermercati-europa-italia-cosa-sappiamo' },
+    S56: { out: 't-online', url: 'https://www.t-online.de/nachrichten/panorama/kriminalitaet/id_101509426/hackerangriff-auf-kuehltruhen-deutsche-supermaerkte-melden-erste-attacken.html' },
+    S57: { out: 'dpa (Tagesspiegel)', url: 'https://www.tagesspiegel.de/wirtschaft/dpa-hacker-attacke-cyberangriffe-auch-auf-kuhlanlagen-deutscher-supermarkte-16237345.html' },
+    S61: { out: 'AFP (Newsworm)', url: 'https://www.newsworm.de/news/germany-also-hit-by-supermarket-refrigeration-cyberattacks' }
+  };
+
+  // Towns named in reports, by database row. src: 'confirmed' = confirmed by company or
+  // authority, 'media' = reported by major media. Rows that are single-source, suspected,
+  // disputed in location, or placed only at region level are not included.
+  // FR-L4 (outside Dijon) and FR-L11 (near Nantes) sit on the city centre, so they are approximate.
+  // key = the source that names the town; the dot links to it.
+  const SITES = [
+    { row: 'FR-L1', town: 'Haguenau', ctry: 'France', ll: [7.79, 48.815], wave: 'w1', src: 'media', key: 'S07' },
+    { row: 'FR-L4', town: 'Outside Dijon', ctry: 'France', ll: [5.04, 47.32], wave: 'w1', src: 'media', key: 'S15' },
+    { row: 'FR-L9', town: 'Paris', ctry: 'France', ll: [2.352, 48.857], wave: 'w1', src: 'media', key: 'S50' },
+    { row: 'FR-L11', town: 'Near Nantes', ctry: 'France', ll: [-1.553, 47.218], wave: 'w1', src: 'media', key: 'S50' },
+    { row: 'BE-L1', town: 'Overijse', ctry: 'Belgium', ll: [4.537, 50.774], wave: 'w2', src: 'media', key: 'S32' },
+    { row: 'BE-05', town: 'Mons', ctry: 'Belgium', ll: [3.952, 50.454], wave: 'w2', src: 'media', key: 'S29' },
+    { row: 'SE-L1', town: 'Böda, Öland', ctry: 'Sweden', ll: [17.07, 57.24], wave: 'w2', src: 'media', key: 'S32' },
+    { row: 'SE-02', town: 'Tomelilla', ctry: 'Sweden', ll: [13.95, 55.545], wave: 'w2', src: 'confirmed', key: 'S63' },
+    { row: 'SE-02', town: 'Sjöbo', ctry: 'Sweden', ll: [13.7, 55.63], wave: 'w2', src: 'confirmed', key: 'S63' },
+    { row: 'IT-01', town: 'Catania', ctry: 'Italy', ll: [15.087, 37.502], wave: 'w2', src: 'confirmed', key: 'S34' },
+    { row: 'IT-01', town: 'Palermo', ctry: 'Italy', ll: [13.361, 38.116], wave: 'w2', src: 'confirmed', key: 'S34' },
+    { row: 'IT-04', town: 'Sassari', ctry: 'Italy', ll: [8.56, 40.727], wave: 'w2', src: 'media', key: 'S36' },
+    { row: 'DE-L1', town: 'Reisbach', ctry: 'Germany', ll: [12.627, 48.57], wave: 'w2', src: 'confirmed', key: 'S56' },
+    { row: 'DE-L2', town: 'Lilienthal', ctry: 'Germany', ll: [8.912, 53.142], wave: 'w2', src: 'media', key: 'S57' },
+    { row: 'DE-L3', town: 'Raesfeld', ctry: 'Germany', ll: [6.844, 51.767], wave: 'w2', src: 'confirmed', key: 'S61' },
+    { row: 'DE-L4', town: 'Wuppertal', ctry: 'Germany', ll: [7.15, 51.256], wave: 'w2', src: 'confirmed', key: 'S56' },
+    { row: 'DE-L5', town: 'Wetter-Volmarstein', ctry: 'Germany', ll: [7.36, 51.375], wave: 'w2', src: 'confirmed', key: 'S57' }
+  ];
+  // Which source levels get a dot. Use ['confirmed'] to show company/authority confirmations only
+  // (France and Belgium then have no dots: their towns come from press reports).
+  const DOT_SOURCES = ['confirmed', 'media'];
+
+  const FIT = { type: 'MultiPoint', coordinates: [[-15.5, 52.5], [-11, 37.6], [-7, 56.6], [14.6, 36.45], [21, 36.8], [26, 58.6], [17, 62.6]] };
+  const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json';
+
+  /* ------------------------------------------------------------------ */
+  /* Setup                                                               */
+  /* ------------------------------------------------------------------ */
+  const root = document.documentElement;
+  const STATIC = location.hash.slice(1) === 'static';
+  const reduceQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced = () => reduceQ.matches || STATIC;
+  if (STATIC) { root.classList.add('static', 'no-anim'); root.dataset.theme = 'light'; }
+
+  const $ = id => document.getElementById(id);
+  const wrap = $('mapWrap'), svgEl = $('map'), gWorld = $('world'), gSym = $('sym'), tip = $('tip');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  const proj = d3.geoAzimuthalEqualArea().rotate([-10, -52]);
+  const path = d3.geoPath(proj);
+  let world, byName, landF, bordersM, ready = false, state = -1;
+  const sites = SITES.filter(s => DOT_SOURCES.includes(s.src));
+
+  /* ------------------------------------------------------------------ */
+  /* Tooltip                                                             */
+  /* ------------------------------------------------------------------ */
+  let tipSite = null, tipHide = 0;
+  function showTip(s) {
+    clearTimeout(tipHide);
+    if (tipSite && tipSite !== s) tipSite.g.classList.remove('hov');
+    tipSite = s;
+    s.g.classList.add('hov');
+    tip.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = s.town;
+    tip.append(b, ', ' + s.ctry);
+    const go = document.createElement('span'); go.className = 'go'; go.textContent = 'Source: ' + SRC[s.key].out + ' ↗';
+    tip.append(go);
+    const W = wrap.clientWidth, w = tip.offsetWidth;
+    tip.style.left = Math.max(w / 2 + 8, Math.min(W - w / 2 - 8, s.x)) + 'px';
+    tip.style.top = s.y + 'px';
+    tip.classList.toggle('below', s.y < tip.offsetHeight + 24);
+    tip.classList.add('on');
+  }
+  function hideTip() {
+    clearTimeout(tipHide);
+    tipHide = setTimeout(() => {
+      tip.classList.remove('on');
+      if (tipSite) tipSite.g.classList.remove('hov');
+      tipSite = null;
+    }, 60);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Map                                                                 */
+  /* ------------------------------------------------------------------ */
+  function build() {
+    const feats = topojson.feature(world, world.objects.countries).features;
+    byName = new Map(feats.map(f => [f.properties.name, f]));
+    landF = topojson.feature(world, world.objects.land);
+    bordersM = topojson.mesh(world, world.objects.countries, (a, b) => a !== b);
+
+    el('path', { class: 'grat', id: 'pGrat' }, gWorld);
+    el('path', { class: 'land', id: 'pLand' }, gWorld);
+    const gT = el('g', {}, gWorld);
+    el('path', { class: 'borders', id: 'pBorders' }, gWorld);
+    el('path', { class: 'coast', id: 'pCoast' }, gWorld);
+
+    const gH = el('g', {}, gSym), gS = el('g', {}, gSym), gL = el('g', {}, gSym);
+    COUNTRIES.forEach(c => {
+      c.tints = c.geo.filter(n => byName.has(n)).map(n => ({ f: byName.get(n), p: el('path', { class: 'tint ' + c.wave }, gT) }));
+      c.lbl = el('g', { class: 'lbl' }, gL);
+      const t1 = el('text', { class: 'l1', 'text-anchor': c.a, y: -2 }, c.lbl);
+      t1.textContent = c.name;
+      const t2 = el('text', { class: 'l2', 'text-anchor': c.a, y: 12 }, c.lbl);
+      const n = el('tspan', { class: 'n' }, t2); n.textContent = c.num;
+      t2.appendChild(document.createTextNode(' stores'));
+    });
+    let k = { w1: 0, w2: 0 };
+    sites.forEach(s => {
+      const so = SRC[s.key];
+      const link = { href: so.url, target: '_blank', rel: 'noopener noreferrer' };
+      // visible dot, keyboard-focusable link
+      s.g = el('g', { class: 'site ' + s.wave }, gS);
+      s.delay = 350 + (k[s.wave]++) * 90;
+      s.a = el('a', { ...link, tabindex: '-1', 'aria-label': `${s.town}, ${s.ctry}. Source: ${so.out} (opens in a new tab)` }, s.g);
+      s.rip = el('circle', { class: 'rip', r: 4.5 }, s.a);
+      el('circle', { class: 'ring', r: 8.5 }, s.a);
+      el('circle', { class: 'dot', r: 4.5 }, s.a);
+      // larger click area, drawn under all dots
+      s.hg = el('g', { class: 'site ' + s.wave }, gH);
+      const ha = el('a', { ...link, tabindex: '-1', 'aria-hidden': 'true' }, s.hg);
+      el('circle', { class: 'hit', r: 12 }, ha);
+      [s.a, ha].forEach(a => {
+        a.addEventListener('pointerenter', () => showTip(s));
+        a.addEventListener('pointerleave', hideTip);
+      });
+      s.a.addEventListener('focus', () => showTip(s));
+      s.a.addEventListener('blur', hideTip);
+    });
+  }
+
+  function layout() {
+    const r = wrap.getBoundingClientRect();
+    const W = Math.max(280, Math.round(r.width)), H = Math.max(240, Math.round(r.height));
+    svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const pad = Math.min(26, W * 0.03);
+    proj.clipExtent(null).fitExtent([[pad, pad], [W - pad, H - pad]], FIT);
+    proj.clipExtent([[-30, -30], [W + 30, H + 30]]);
+    $('pGrat').setAttribute('d', path(d3.geoGraticule().step([10, 10])()));
+    const dLand = path(landF);
+    $('pLand').setAttribute('d', dLand);
+    $('pCoast').setAttribute('d', dLand);
+    $('pBorders').setAttribute('d', path(bordersM));
+    const at = (g, ll) => { const [x, y] = proj(ll); g.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`); return [x, y]; };
+    COUNTRIES.forEach(c => { c.tints.forEach(t => t.p.setAttribute('d', path(t.f))); at(c.lbl, c.ll); });
+    sites.forEach(s => { [s.x, s.y] = at(s.g, s.ll); at(s.hg, s.ll); });
+    if (tipSite) showTip(tipSite);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* State                                                               */
+  /* ------------------------------------------------------------------ */
+  function setState(s, animate) {
+    if (s === state) return;
+    const forward = s > state;
+    state = s;
+    COUNTRIES.forEach(c => {
+      const on = WAVE_STEP[c.wave] <= s;
+      c.tints.forEach(t => t.p.classList.toggle('on', on));
+      c.lbl.classList.toggle('on', on);
+    });
+    sites.forEach(x => {
+      const on = WAVE_STEP[x.wave] <= s;
+      if (on === x.g.classList.contains('on')) return;
+      x.g.style.setProperty('--d', on && animate ? x.delay + 'ms' : '0ms');
+      x.g.classList.toggle('on', on);
+      x.hg.classList.toggle('on', on);
+      x.a.setAttribute('tabindex', on ? '0' : '-1');
+      if (!on && tipSite === x) hideTip();
+      if (on && animate && forward && !reduced()) { x.rip.classList.remove('go'); x.rip.getBoundingClientRect(); x.rip.classList.add('go'); }
+    });
+    const lit = COUNTRIES.filter(c => WAVE_STEP[c.wave] <= s);
+    tweenFigs(lit.reduce((a, c) => a + c.n, 0), lit.reduce((a, c) => a + c.geo.length, 0), animate);
+
+    document.querySelectorAll('.pill').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.s === s)));
+    const cap = $('cap');
+    cap.textContent = STEPS[s].cap;
+    if (animate && !reduced()) { cap.classList.remove('swapin'); void cap.offsetWidth; cap.classList.add('swapin'); }
+    syncPlay();
+  }
+
+  // header figures count up to the new totals
+  const fig = { stores: 0, ctry: 0 };
+  let figRun = 0;
+  function drawFigs(st, ct) {
+    // rounded to tens: the total mixes an estimate (France) with minimums (the rest)
+    $('figStores').textContent = st > 0 ? '≈' + (Math.round(st / 10) * 10).toLocaleString('en') : '0';
+    $('figCountries').textContent = Math.round(ct);
+  }
+  function tweenFigs(st, ct, animate) {
+    const id = ++figRun;
+    const from = { ...fig };
+    fig.stores = st; fig.ctry = ct;
+    if (!animate || reduced()) { drawFigs(st, ct); return; }
+    const t0 = performance.now(), dur = 900;
+    const tick = () => {
+      if (id !== figRun) return;
+      const u = Math.min(1, (performance.now() - t0) / dur), e = d3.easeCubicOut(u);
+      drawFigs(from.stores + (st - from.stores) * e, from.ctry + (ct - from.ctry) * e);
+      if (u < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    setTimeout(() => { if (id === figRun) drawFigs(st, ct); }, dur + 60);  // in case frames are throttled
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Playback                                                            */
+  /* ------------------------------------------------------------------ */
+  const ICON_PLAY = '<path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/>';
+  const ICON_PAUSE = '<rect x="3.5" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.5" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/>';
+  const ICON_REPLAY = '<path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5V5h2.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>';
+  let timers = [], playing = false, userActed = false;
+
+  function syncPlay() {
+    const b = $('play');
+    if (playing) { $('playIcon').innerHTML = ICON_PAUSE; b.setAttribute('aria-label', 'Pause'); }
+    else if (state === STEPS.length - 1) { $('playIcon').innerHTML = ICON_REPLAY; b.setAttribute('aria-label', 'Replay from the beginning'); }
+    else { $('playIcon').innerHTML = ICON_PLAY; b.setAttribute('aria-label', 'Play'); }
+  }
+  function stop() { timers.forEach(clearTimeout); timers = []; playing = false; syncPlay(); }
+  function play() {
+    if (!ready) return;
+    stop();
+    if (state === STEPS.length - 1) setState(0, true);
+    playing = true; syncPlay();
+    let t = state === 0 ? 500 : 200;
+    for (let s = state + 1; s < STEPS.length; s++) {
+      const target = s;
+      timers.push(setTimeout(() => { setState(target, true); if (target === STEPS.length - 1) { playing = false; syncPlay(); } }, t));
+      t += 4800;
+    }
+  }
+
+  $('play').addEventListener('click', () => { userActed = true; playing ? stop() : play(); });
+  document.querySelectorAll('.pill').forEach(b => b.addEventListener('click', () => {
+    if (!ready) return;
+    userActed = true; stop(); setState(+b.dataset.s, true);
+  }));
+
+  /* ------------------------------------------------------------------ */
+  /* Boot                                                                */
+  /* ------------------------------------------------------------------ */
+  // layout() only changes the SVG's contents, never the observed box, so it can run right here
+  const ro = new ResizeObserver(() => { if (ready) layout(); });
+
+  function start() {
+    build();
+    layout();
+    $('loading').remove();
+    ready = true;
+    ro.observe(wrap);
+    if (STATIC || reduceQ.matches) {
+      root.classList.add('no-anim');
+      setState(STEPS.length - 1, false);
+      if (!STATIC) requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('no-anim')));
+    } else {
+      setState(0, false);
+      setTimeout(() => { if (!userActed) play(); }, 700);
+    }
+    if (STATIC) document.body.setAttribute('data-ready', '1');
+  }
+
+  fetch(GEO_URL)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(w => { world = w; return (document.fonts && document.fonts.ready) || null; })
+    .then(start)
+    .catch(err => {
+      console.error(err);
+      const l = $('loading');
+      if (l) { l.classList.add('err'); l.textContent = 'The map shapes could not be loaded. Check the internet connection and reload the page.'; }
+    });
+})();
+</script>
+</body>
+</html>
